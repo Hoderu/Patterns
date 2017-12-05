@@ -24,19 +24,3 @@ struct Append<TypeList<Args1...>, TypeList<Args2...>>
 {
     typedef TypeList<Args2..., Args1...> type;
 };
-
-template <typename TList, typename T>
-struct Erase
-{};
-
-template <typename T>
-struct Erase<EmptyNode, T>
-{
-    typedef EmptyNode Result;
-};
-
-template <typename T, typename Tail>
-struct Erase<TypeList<T, Tail>, T>
-{
-    typedef Tail Result;
-};

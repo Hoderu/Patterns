@@ -6,9 +6,10 @@
 //  Copyright © 2017 Андрей Решетников. All rights reserved.
 //
 
-#include "Append+Erase.h"
+#include "Append.h"
 #include "IsEmpty.h"
 #include <list>
+#include <type_traits>
 
 std::ostream& operator<<(std::ostream& ostr, EmptyTypeList)
 {
@@ -85,10 +86,62 @@ std::ostream& operator<<(std::ostream& ostr, TypeList<Args...> tl)
     return ostr;
 }
 
+template <typename ...Args>
+class objList {
+public:
+    typedef TypeList<Args...> _types;
+    std::list<void *> _data;
+    
+    template <typename T, typename ...Arg>
+    friend objList<Arg..., T>* push(T*, objList<Arg...>*);
+    template <typename T, typename ...Arg>
+    friend objList<Arg...>* pop_back(objList<Arg..., T>*);
+};
+
+template <typename T, typename ...Args>
+objList<Args..., T>* push(T* pointer, objList<Args...>* obj_list) {
+    obj_list->_data.push_back(pointer);
+    objList<Args..., T>* new_list = new objList<Args..., T>();
+    new_list->_data = obj_list->_data;
+    return new_list;
+}
+
+template <typename T, typename ...Args>
+objList<Args...>* pop_back(objList<Args..., T>* obj_list) {
+    obj_list->_data.pop_back();
+    objList<Args...>* new_list = new objList<Args...>();
+    new_list->_data = obj_list->_data;
+    return new_list;
+}
+
+template<typename TList, typename T>
+struct Erase
+{};
+
+template<typename T>
+struct Erase<EmptyNode, T>
+{
+    typedef EmptyNode Result;
+};
+
+template<typename T, typename Tail>
+struct Erase<TypeList<T, Tail>, T>
+{
+    typedef Tail Result;
+};
+
+template<typename Head, typename Tail, typename T>
+struct Erase<TypeList<Head, Tail>, T>
+{
+    typedef TypeList<Head,
+    typename Erase<Tail, T>::Result>
+    Result;
+};
+
 template<class T, int n>
 class LineSize {
 public:
-    static const int size = LineSize<Erase<T, TypeAt<0, T>>, n - 1>::size + sizeof(typename TypeAt<0, T>::type);
+    static const int size = LineSize<typename Erase<T, typename TypeAt<0, T>::type>::Result, n - 1>::size + sizeof(typename TypeAt<0, T>::type);
 };
 
 template<class T>
@@ -105,7 +158,9 @@ void ReadData(void* data) {
     source = &type;
     memcpy(data, source, sizeof(typename TypeAt<0, TList>::type));
     data = (typename TypeAt<0, TList>::type*)data + sizeof(typename TypeAt<0, TList>::type);
-    ReadData<Erase<TList, TypeAt<0, TList>>>(data);
+    if (!std::is_pointer<typename TypeAt<0, TList>::type>::value) {
+        ReadData<typename Erase<TList,typename TypeAt<0, TList>::type>::Result>(data);
+    }
 };
 
 template<>
@@ -116,7 +171,7 @@ template<class T>
 class Reader {
 public:
     void* readNextLine() {
-        void* data = malloc(8);
+        void* data = malloc(size);
         ReadData<T>(data);
         return data;
     };
@@ -135,5 +190,16 @@ int main(int argc, const char * argv[]) {
     Reader<TL1> reader;
     data = reader.readNextLine();
     
+    //    int d = 2;
+    //    int* c = &d;
+    //    objList<int> a;
+    //    objList<int, int>* b = new objList<int, int>();
+    //    b = push(c, &a);
+    //    objList<int, int, int>* f = new objList<int, int, int>();
+    //    f = push(c, b);
+    //    objList<int, int>* e = new objList<int, int>();
+    //    e = pop_back<int, int, int>(f);
+    
     return 0;
 }
+
